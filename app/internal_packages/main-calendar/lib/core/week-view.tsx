@@ -12,6 +12,7 @@ import { WeekViewAllDayEvents } from './week-view-all-day-events';
 import { CalendarEventContainer } from './calendar-event-container';
 import { CurrentTimeIndicator } from './current-time-indicator';
 import { Disposable } from 'rx-core';
+import { CalendarView } from './calendar-constants';
 import {
   overlapForEvents,
   maxConcurrentEvents,
@@ -196,13 +197,10 @@ export class WeekView extends React.Component<
   };
 
   _onScrollCalendarArea = (event: React.UIEvent) => {
-    console.log(event.currentTarget.scrollLeft);
     // if (!event.currentTarget.scrollLeft || this._waitingForShift) {
     //   return;
     // }
-
     // const edgeWidth = (event.currentTarget.clientWidth / DAYS_IN_VIEW) * 2;
-
     // if (event.currentTarget.scrollLeft < edgeWidth) {
     //   this._waitingForShift = event.currentTarget.clientWidth;
     //   this._onClickPrevWeek();
@@ -264,6 +262,8 @@ export class WeekView extends React.Component<
             title={headerText}
             nextAction={this._onClickNextWeek}
             prevAction={this._onClickPrevWeek}
+            onChangeView={this.props.onChangeView}
+            disabledViewButton={CalendarView.WEEK}
           >
             <button
               key="today"

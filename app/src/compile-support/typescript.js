@@ -21,7 +21,7 @@ exports.getCachePath = function(sourceCode) {
   return path.join(
     typescriptVersionDir,
     crypto
-      .createHash('sha1')
+      .createHash('sha256')
       .update(sourceCode, 'utf8')
       .digest('hex') + '.js'
   );
@@ -35,7 +35,7 @@ exports.compile = function(sourceCode, filePath) {
       if (err.toString().includes('Cannot find module')) {
         const dialog =
           process.type === 'renderer'
-            ? require('electron').remote.dialog
+            ? require('@electron/remote').dialog
             : require('electron').dialog;
         dialog.showErrorBox(
           `Plugin must be compiled`,
@@ -57,7 +57,7 @@ exports.compile = function(sourceCode, filePath) {
 
 function createVersionAndOptionsDigest(version, options) {
   return crypto
-    .createHash('sha1')
+    .createHash('sha256')
     .update('ts', 'utf8')
     .update('\0', 'utf8')
     .update(version, 'utf8')

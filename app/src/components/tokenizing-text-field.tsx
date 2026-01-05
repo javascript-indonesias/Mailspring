@@ -1,6 +1,6 @@
 import classNames from 'classnames';
 import _ from 'underscore';
-import { remote } from 'electron';
+
 import React from 'react';
 import ReactDOM from 'react-dom';
 import { localized, PropTypes, Utils, RegExpUtils } from 'mailspring-exports';
@@ -75,20 +75,20 @@ interface TokenState {
   dragging: boolean;
 }
 
-interface TokenProps {
+interface TokenProps<T> {
   className: string;
   selected: boolean;
   valid: boolean;
-  item: any;
-  onClick: (event: any, item: any) => void;
-  onDragStart: (event: any, item: any) => void;
-  onEdited?: (event: any, item: any) => void;
-  onAction: (item: any) => void;
+  item: T;
+  onClick: (event: any, item: T) => void;
+  onDragStart: (event: any, item: T) => void;
+  onEdited?: (event: any, item: T) => void;
+  onAction: (item: T) => void;
   disabled?: boolean;
-  onEditMotion?: (item: any) => void;
+  onEditMotion?: (item: T) => void;
 }
 
-class Token extends React.Component<TokenProps, TokenState> {
+class Token<T> extends React.Component<TokenProps<T>, TokenState> {
   static displayName = 'Token';
 
   static propTypes = {
@@ -113,7 +113,7 @@ class Token extends React.Component<TokenProps, TokenState> {
     dragging: false,
   };
 
-  shouldComponentUpdate(nextProps: TokenProps, nextState: TokenState) {
+  shouldComponentUpdate(nextProps: TokenProps<T>, nextState: TokenState) {
     return (
       nextProps.selected !== this.props.selected ||
       nextProps.valid !== this.props.valid ||
@@ -124,7 +124,7 @@ class Token extends React.Component<TokenProps, TokenState> {
     );
   }
 
-  componentDidUpdate(prevProps: TokenProps, prevState: TokenState) {
+  componentDidUpdate(prevProps: TokenProps<T>, prevState: TokenState) {
     if (this.state.editing !== null && prevState.editing === null) {
       (this.refs.input as SizeToFitInput).select();
     }
@@ -232,18 +232,18 @@ class Token extends React.Component<TokenProps, TokenState> {
   }
 }
 
-type TokenizingTextFieldProps = {
+type TokenizingTextFieldProps<T> = {
   className?: string;
   disabled?: boolean;
   placeholder?: React.ReactNode;
-  tokens?: object[];
+  tokens?: T[];
   maxTokens?: number;
   defaultValue?: string;
-  tokenKey: (...args: any[]) => any;
-  tokenIsValid?: (...args: any[]) => any;
-  tokenRenderer: (...args: any[]) => any;
-  tokenClassNames?: (...args: any[]) => any;
-  onRequestCompletions: (...args: any[]) => any;
+  tokenKey: (token: T) => any;
+  tokenIsValid?: (token: T) => any;
+  tokenRenderer: (props: { token: T }) => any;
+  tokenClassNames?: (token: T) => any;
+  onRequestCompletions: (...args: any[]) => T[] | Promise<T[]>;
   completionNode: (...args: any[]) => any;
   onAdd: (...args: any[]) => any;
   onInputTrySubmit?: (...args: any[]) => any;
@@ -257,10 +257,10 @@ type TokenizingTextFieldProps = {
   label?: string;
   tabIndex?: number;
 };
-type TokenizingTextFieldState = {
+type TokenizingTextFieldState<T> = {
   inputValue: string;
   focus: boolean;
-  completions: undefined[];
+  completions: T[];
   selectedKeys: string[];
 };
 
@@ -274,9 +274,9 @@ See documentation on the propTypes for usage info.
 
 Section: Component Kit
 */
-export class TokenizingTextField extends React.Component<
-  TokenizingTextFieldProps,
-  TokenizingTextFieldState
+export class TokenizingTextField<T> extends React.Component<
+  TokenizingTextFieldProps<T>,
+  TokenizingTextFieldState<T>
 > {
   static displayName = 'TokenizingTextField';
 
@@ -670,7 +670,7 @@ export class TokenizingTextField extends React.Component<
 
   // Managing Tokens
 
-  _addInputValue = (input = this.state.inputValue, options = {}) => {
+  _addInputValue = (input = this.state.inputValue, options: { skipNameLookup?: boolean } = {}) => {
     if (this._atMaxTokens()) {
       return;
     }
@@ -681,7 +681,7 @@ export class TokenizingTextField extends React.Component<
     this._clearInput();
   };
 
-  _onClickToken = (event, token) => {
+  _onClickToken = (event, token: T) => {
     const { tokenKey, tokens } = this.props;
     let { selectedKeys } = this.state;
 
@@ -782,9 +782,9 @@ export class TokenizingTextField extends React.Component<
   };
 
   _showDefaultTokenMenu = token => {
-    const menu = new remote.Menu();
+    const menu = require('@electron/remote').Menu();
     menu.append(
-      new remote.MenuItem({
+      require('@electron/remote').MenuItem({
         click: () => this._removeTokens([token]),
         label: localized('Remove'),
       })
@@ -792,7 +792,7 @@ export class TokenizingTextField extends React.Component<
 
     if (this.props.onEditMotion) {
       menu.append(
-        new remote.MenuItem({
+        require('@electron/remote').MenuItem({
           label: localized('Edit'),
           click: () => this.props.onEditMotion(token),
         })
@@ -984,8 +984,8 @@ export class TokenizingTextField extends React.Component<
         {this.props.label && <div className="tokenizing-field-label">{`${this.props.label}:`}</div>}
         <div className={fieldClasses}>
           {this.state.inputValue.length > 0 ||
-          this.props.placeholder === undefined ||
-          this.props.tokens.length > 0 ? (
+            this.props.placeholder === undefined ||
+            this.props.tokens.length > 0 ? (
             false
           ) : (
             <div className="placeholder">{this.props.placeholder}</div>

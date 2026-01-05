@@ -1,6 +1,6 @@
 /* eslint global-require: 0 */ /* eslint prefer-template: 0 */
 /* eslint quote-props: 0 */
-const packager = require('electron-packager');
+const packager = require('@electron/packager');
 const path = require('path');
 const util = require('util');
 const tmpdir = path.resolve(require('os').tmpdir(), 'nylas-build');
@@ -31,6 +31,27 @@ module.exports = grunt => {
     let jsonString = fs.readFileSync(jsonPath).toString();
     jsonString = jsonString.replace('COMMIT_INSERTED_DURING_PACKAGING', commit.substr(0, 8));
     fs.writeFileSync(jsonPath, jsonString);
+    callback();
+  }
+  /**
+   * For Electron versions that support the setuid sandbox on Linux, changes the permissions of
+   * the `chrome-sandbox` executable as appropriate.
+   *
+   * The sandbox helper executable must have the setuid (`+s` / `0o4000`) bit set.
+   *
+   * This doesn't work on Windows because you can't set that bit there.
+   *
+   * See: https://github.com/electron/electron/pull/17269#issuecomment-470671914
+   */
+  function runUpdateSandboxHelperPermissions(buildPath, electronVersion, platform, arch, callback) {
+    // https://github.com/electron-userland/electron-installer-common/blob/feaf7a9b4c947e8838befc8772da71903990c652/src/sandboxhelper.js
+    const helperPath = path.resolve(buildPath, '..', '..', 'chrome-sandbox');
+    if (fs.existsSync(helperPath)) {
+      console.log('---> Changing chrome-sandbox permissions');
+      fs.chmodSync(helperPath, 0o4755);
+    } else {
+      console.log('---> Could not find chrome-sandbox to change permissions');
+    }
     callback();
   }
   /**
@@ -111,7 +132,8 @@ module.exports = grunt => {
       appCategoryType: 'public.app-category.business',
       tmpdir: tmpdir,
       arch: {
-        win32: 'ia32',
+        win32: 'x64',
+        darwin: process.env.OVERRIDE_TO_INTEL ? 'x64' : process.arch,
       }[platform],
       icon: {
         darwin: path.resolve(
@@ -146,7 +168,9 @@ module.exports = grunt => {
             '**/vendor/**',
             'examples/**',
             '**/src/tasks/**',
+            '**/src/quickpreview/**',
             '**/static/all_licenses.html',
+            '**/static/extensions/**',
             '**/node_modules/spellchecker/**',
             '**/node_modules/windows-shortcuts/**',
           ].join(',') +
@@ -187,7 +211,6 @@ module.exports = grunt => {
         /node_modules[/].*[/]tests?$/,
         /node_modules[/].*[/]coverage$/,
         /node_modules[/].*[/]benchmark$/,
-        /@paulbetts[/]+cld[/]+deps[/]+cld/,
       ],
       out: grunt.config('outputDir'),
       overwrite: true,
@@ -218,11 +241,14 @@ module.exports = grunt => {
             ),
           }
         : undefined,
-      osxNotarize: {
-        appleId: process.env.APPLE_ID,
-        appleIdPassword: process.env.APPLE_ID_PASSWORD,
-        ascProvider: process.env.APPLE_ID_ASC_PROVIDER,
-      },
+      osxNotarize: process.env.APPLE_ID
+        ? {
+            appleId: process.env.APPLE_ID,
+            appleIdPassword: process.env.APPLE_ID_PASSWORD,
+            ascProvider: process.env.APPLE_ID_ASC_PROVIDER,
+            teamId: process.env.APPLE_TEAM_ID,
+          }
+        : undefined,
       win32metadata: {
         CompanyName: 'Foundry 376, LLC',
         FileDescription: 'Mailspring',
@@ -248,6 +274,7 @@ module.exports = grunt => {
       afterCopy: [
         runCopyPlatformSpecificResources,
         runWriteCommitHashIntoPackage,
+        runUpdateSandboxHelperPermissions,
         runCopySymlinkedPackages,
         runTranspilers,
       ],

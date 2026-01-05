@@ -1,5 +1,369 @@
 # Mailspring Changelog
 
+## 1.16.0
+
+- Thunderbird-style Autoconfiguration (#2493)
+
+- Fix in-app previews for PDF attachments on Windows / Linux
+
+- Update and improve zh-TW Traditional Chinese locale (#2498)
+
+- Update Czech translation (#2500)
+
+- snap: Use core24 as base (#2497)
+
+- Change lsb-core-noarch to be an optional dependency in the RPM package. (#2503)
+
+- Fix a few misc application errors logged to our reporting service
+
+- Upgrade to Electron 37.2.2 - Chromium 138, V8 13.8, and Node.js 22.16 for faster JavaScript execution and better email rendering.
+
+## 1.15.1
+
+This is a patch release that resolves several user-reported issues. Thank
+
+- On Windows, notifications could not appear because of an issue checking Windows "Quiet Hours" settings
+
+- Dragging and dropping file attachments to the composer or the signature editor resulted in a path error.
+
+- On Windows, you may need to install Language Packs for some languages to be available for spellcheck, and this no longer causes an error.
+
+- The RPM build no longer generate build_id links to prevent conflicts when installing multiple Electron apps.
+
+## 1.15.0
+
+Happy 2025! This version of Mailspring upgraedes the app to Electron 33 and Chromium 130, ensuring the latest upstream bug fixes, security patches and improvements are available in the app.
+
+- macOS 10.15 (Catalina) is no longer supported. macOS 11 (Big Sur) or later is required.
+
+- We are considering dropping Ubuntu 16, Ubuntu 18 and other Linux releases >6 years old. If this would impact you, please let me know at ben@foundry376.com! It's getting harder to build a mailsync binary because our CI services are dropping support.
+
+Fixes:
+
+- Mailspring now conforms to the AppStream metainfo standard. Thanks @mischkl!
+
+## 1.14.0
+
+This version of Mailspring includes several improvements:
+
+- Mailspring now connects to Outlook accounts using OAuth.
+
+- The `autoconfig` database used to identify your IMAP and SMTP settings automatically has been upgraded to reflect changes in provider settings.
+
+- On Windows and Linux, previewing attachments is more robust and works with a wider variety of files. These attachments also have rendered previews in the message view.
+
+- Mailspring allows you to add Medium, GitHub and YouTube links to email signatures created in the app. (#2484) Thanks @sudeephazra!
+
+- Subject lines no longer overflow if they contain single long words (#2485) Thanks @probablykasper!
+
+Developer:
+
+- Mailspring now uses Electron 30, a recent supported release based on Chromium M124 - thanks to @Phylu for lots of PRs and manual testing that helped us move up three years of versions (v17 => v30) in the last 12 months!
+
+- The Changelog now mentions security contributions by Positive Technologies, Payatu, and Sonar in v1.13.3.
+
+## 1.13.3
+
+Happy new year! This is a small update to Mailspring with a few important changes:
+
+- On macOS, long-pressing a key to show it's available subtitutions (eg: `e` to see `é, ê, etc.`) now works properly in the email composer. Sorry for the delay fixing this issue, for many non-english speakers on macOS we know it's a core part of your email workflow.
+
+- We now escape subject and participant names in the print modal, ensuring that they render properly for printing. Thanks to Andrialdy R for identifying and documenting a related vulnerability.
+
+- We now use DOMPurify to sanitize the content of HTML emails for display. DOMPurify is maintained by a team of security-oriented web engineers and will ensure Mailspring protects you from the widest possible range of XSS attacks and exploits. Thanks to Yaniv Nizry of [Sonar](https://sonarsource.com) for identifying and reporting weaknesses in our old sanitizer.
+
+- As part of the DOMPurify change, Mailspring now supports a smaller range of links in emails (https://, tel://, mailto:// etc). Thanks to Vaibhav Rajput and Prajyot Chemburkar of [Payatu](https://payatu.com/) for reporting that smb:// links were previously allowed and useful in triggering exploits.
+
+## 1.13.2
+
+This is a patch release that fixes several issues:
+
+- Composition events in Mailspring's composer should work as expected. (Typing modifier keys, such as Option-E followed by E to create É)
+
+- The composer warn about several more invalid recipient errors correctly (thanks @Phylu!)
+
+- Dark-mode tray support on Windows has been improved with new icons (thanks @Phylu!)
+
+- The Linux Snap build no longer requests extraneous permissions (thanks @3v1n0!)
+
+## 1.13.1
+
+Mailspring 1.13 now runs on Electron 22, completing a migration process we started in 1.12.0!
+
+If you are upgrading from an old version of Mailspring, download and run 1.12.0 first before installing this version. We've moved from keytar to Electron's safeStorage API for securely storing your email passwords, and version 1.12.0 will perform a migration ensuring your passwords are transitioned.
+
+If you're using the snap version of Mailspring, you may find that Mailspring forgets your passwords when you upgrade. I'm very sorry for the hassle this causes - issues with snap containment in version 1.12.0 caused Mailspring to lose many user's passwords during the upgrade process. If this applies to you, you may see password errors and need to:
+
+    Visit Preferences > Subscription and click Setup Mailspring ID and sign back in to your Mailspring account. (You should see an alert at launch that will remind you which email address you'd used for your Mailspring ID)
+
+    Visit Preferences > Accounts and re-authenticate any accounts shown in red that are having connection difficulty.
+
+## 1.12.0 (10/09/2023)
+
+Features:
+
+- The Windows tray icon styles have been improved, and a new option allows you to opt-out of the red icon style. (Thanks @Phylu)
+
+- Mail rules now support filtering based on the "Reply-to" header. (Thanks @Phylu)
+
+- The "Snooze" UI now allows you to type "600" as a shortcut for for "6:00". (Thanks @ChocoTonic)
+
+Bug Fixes:
+
+- The snooze label is less ambiguous and includes the month and year. (Thanks @Phylu)
+
+Localization:
+
+- British english localizations have been added. (Thanks @danbishop)
+
+- Traditional chinese localizations have been greatly improved. (Thanks @PeterDaveHello)
+
+Developer:
+
+- Mailspring now stores your mail secrets using Electron SafeStorage instead of the deprecated Keytar library thanks to updates by @Phylu. This will allow us to move to a newer version of Electron soon!
+
+- The Snap package now uses core22 and the `gnome` extension. (Thanks @soumyaDghosh)
+
+## 1.11.0 (07/28/2023)
+
+Features:
+
+- The "Move to Folder" menu action allows you to press Tab or the "→" key to complete the name of the highlighted folder, which makes it easier to complete a path in long folder hierarchies.
+
+- Mailspring now properly identifies and formats quoted text from Yahoo and AOL email. (Thanks @nzayatz14)
+
+- On MacOS, the Mailspring icon in the dock now allows you to compose a new message from the context menu. (thanks @Naroh091)
+
+- Mailspring's menu bar icon is now red for new mail and blue for unread mail, which makes it easier to spot a new message that needs attention. (#2433, thanks @marivaldojr)
+
+Bug Fixes:
+
+- Contact sync no longer crashes when a contact has no display name (thanks @ww-daniel-mora)
+
+- The help menu now offers the standard MacOS "menu search" feature (Thanks @probablykasper)
+
+- Colons are allowed in URLs and no longer break Mailspring's link highlighting. (thanks @choptastic!)
+
+- The email preview is no longer in some cases in vertical layout (thanks @glenn2223!)
+
+- Updated Italian translations (thanks @andy00087!)
+
+Developer:
+
+- Mailspring now uses a more restrictive Content-Security-Policy that includes `object-src none; media-src mailspring:; manifest-src none;`. If your plugin packaged media such as sounds, you may need to reference them via the mailspring:// URL syntax (ala 2b75347c) (Thanks to Igor Sak-Sakovskiy of [Positive Technologies](https://www.ptsecurity.com/ww-en/) for a related vulnerability report.)
+
+## 1.10.8 (12/29/2022)
+
+_Happy new year! Thanks for your continued support - we're celebrating five years of open-source and the 60th Mailspring release!_
+
+Features:
+
+- You can now drag-to-resize inline images in the composer! (Thanks @glenn2223!)
+
+Bug Fixes:
+
+- Launching Mailspring after a long time no longer causes the app to crash trying to show the vacuum UI. (Thankfully these changes do complete, so this error is recoverable.)
+
+- Mailspring no longer shows "0pm" at 12pm / noon in some scenarios. (Thanks @glenn2223!)
+
+- Updated Italian translations (thanks @andy00087!)
+
+## 1.10.7 (11/21/2022)
+
+- When creating a new IMAP + SMTP account, Mailspring sends a test message through the SMTP gateway to yourself, instead of attempting to send the message to an invalid address.
+
+- When clicking "Unsubscribe", Mailspring verifies that the unsubscribe URL in the email will open in your default web browser.
+
+- Composer recipient warnings are now optional. (Thanks @arhanjain!)
+
+- The "and X more" display in message contacts no longer includes a stray `$` (Thanks @timdorr)
+
+## 1.10.6 (10/10/2022)
+
+Features:
+
+- The send later delay can be skipped by clicking the new `Send now instead` button (localization required)
+
+Changes:
+
+- Mailsync now requests fewer emails at a time, fixing compatibility issues with large Office365 accounts. (Thanks @BrandonGillis for extensive testing of this change!)
+
+- Inline image "cid:" references may appear only in `<img src=“”>`, and may not appear elsewhere in message bodies. (Thanks to Igor Sak-Sakovskiy of [Positive Technologies](https://www.ptsecurity.com/ww-en/) for this vulnerability report.)
+
+- Mailspring uses iframe sandboxing to disallow interactivity in message bodies, in addition to santizing loaded HTML down to a strict list of tags and attributes.
+
+- Fixes a rare ResizeObserver error loop caused by messages resizing as they're unmounted.
+
+- Mailspring's Flatpak version number has been updated.
+
+- The Brazilian Portuguese translation has been reviewed and refined by @matheusreich (#2429)
+
+- Fix the vertical overflow bug (Community - 3507) (Thanks @glenn2223! #2423)
+
+- Fix `[Message Clipped - Show All]` link (Thanks @glenn2223! #2426)
+
+- The message participant list is easier to interact with, thanks to several adjustments by @glenn2223! See https://github.com/Foundry376/Mailspring/pull/2425 for more details.
+
+- The "Recent Emails" content in Mailspring's sidebar now displays the weekday and time (eg: "Mon, 10:15") and shows 5 days of emails rather than 2.
+
+## 1.10.5 (8/10/2022)
+
+Changes:
+
+- Fixes a critical issue with the app crashing for Spanish users due to an error in the localization files.
+
+- Czech translation has been improved (Thanks Ivo Šmerek!)
+
+- Users with Apple Silicon Mac devices will receive the Arm64 build automatically when 1.10.6 is released.
+
+## 1.10.4 (8/9/2022)
+
+This release updates Mailspring to address a recent Google policy change and fixes email sync with Gmail accounts. This release also moves Mailspring to 64-bit on Windows (Thanks @ronymesquita), and adds an Apple Silicon build for M1 and M2 Macs, dramatically improving performance on those machines. (It's super noticeable!)
+
+Changes:
+
+- Spanish translation has been improved (Thanks @EdR13!)
+
+- When connecting an Office365 account, you're now prompted to choose an email account on the web. (Thanks @fanrenng!)
+
+- Mailspring now uses longer-lived Office365 credentials, eliminating the need to sign back in to your account periodically. (Thanks @fanrenng)
+
+- Linux sendto functionality has been fixed to correctly handle electron internal options (#2409) (Thanks @Phylu!)
+
+## 1.10.3 (4/14/2022)
+
+This release fixes several important issues and moves Mailspring to Electron 18:
+
+- Fix the show original functionality by correctly electron/remote (Thanks @Phylu!)
+
+- Adjust text when messages are hidden after being moved to trash or spam (Thanks @Phylu!)
+
+- Upgrade electron to 18.0.1 and windows-quiet-hours to 2.0.0 in order to fix notifications on windows (Thanks @Phylu!)
+
+- Fix spellchecking by adjusting languages based on the supported hunspell languages (Thanks @Phylu!)
+
+- Updated some wrong auto translations to Spanish (Thanks @Javiermartingonzalez!)
+
+- Fix login to Office 365 Accounts (Thanks @Phylu!)
+
+## 1.10.2 (3/29/2022)
+
+This release fixes an issue with Mailspring's quicklook implementation that surfaced yesterday and could allow for remote code execution using specially crafted attachments. Thanks to `posix` for reporting the issue and @Phylu for the fix.
+
+- This release also improves Mailspring's Turkish localization (Thanks @emintufan!)
+
+## 1.10.1 (3/12/2022)
+
+This release fixes a critical issue in 1.10.0 that caused the app to fail to launch on Windows. This was caused by upstream changes to our AppVeyor build pipeline that changed the default compilation architecture from ia32 to x64 on Windows. We're sorry it took so long to track this down!
+
+- Fixes the "View License" menu item on Windows (Thanks @Phylu!)
+
+- References to "You" in Mailspring now include the label of the relevant account anytime more than one account is present. (Thanks @Phylu!)
+
+## 1.10.0 (2/28/2022)
+
+This release moves Mailspring from Electron 8 to Electron 14 thanks to the hard work of @Phylu and other community members! 🎉 This brings Wayland support on Linux and many performance and security improvements.
+
+- This will allow Mailspring to ship Universal builds for MacOS ARM machines!
+
+- Mailspring now uses the system spellchecker more directly - on MacOS, the spellcheck language is auto-determined as you type.
+
+- We have temporarily removed the ability to reply directly from notification toasts on MacOS, pending futher support for it in Electron.
+
+**Features:**
+
+- The Mailspring snapcraft distribution now loads using LZO, which significantly improves launch performance. (Thanks to @kz6fittycent)
+
+- Mailspring now skips "All Mail" when syncing Protonmail accounts which prevents messages from thrashing between folders and consuming significant CPU. (Thanks to @bl00mber and others!)
+
+- Mailspring now defaults to SSL / TLS on port 465 for SMTP, per RFC 8314 (Thanks to @slokhorst)
+
+- We now go back to inbox after "Remove and show next/previous" for last email (Thanks to @nino)
+
+### 1.9.2 (9/5/2021)
+
+**Features:**
+
+- ProtonBridge integration is now possible thanks to #2323 (Thanks @bl00mber!)
+
+- You can create mail rules that forward your emails from **Preferences > Mail Rules** (Thanks @stanvanrooy!)
+
+- Snoozing now has a shortcut! `h` in the Gmail keybindings, `Ctrl-H` and `Cmd-H` for other configurations. (Thanks @avelino!)
+
+**Fixes:**
+
+- Signature image upload is correctly disabled if you are signed out of Mailspring ID since we can't store your assets in a GDPR-compliant way without authentication.
+
+- Mailbox permalinks continue to work outside of the thread-sharing plugin
+
+- Strange layout bug for trash / spam folders on vertical layout has been fixed
+
+- The "Mark as spam" keyboard shortcut is now configurable from Preferences > Shortcuts
+
+- Launching Mailspring in the background on startup now works correctly on macOS.
+
+**Localization:**
+
+- German and Czech localizations have been improved and the app has been fully localized into Turkish! (Thanks to @SiderealArt, @emintufan and @Phylu)
+
+### 1.9.1 (4/16/2021)
+
+**Fixes:**
+
+- Mailspring no longer closes after you link your first account if the system tray has not been configured.
+
+- Mailspring's connections to its database no longer time out (causing the red account warning) while syncing more than ~4 accounts, thanks to an updated build of SQLite.
+
+Thanks to everyone for reporting these issues and contributing the information we needed to track them down!
+
+### 1.9.0 (4/13/2021)
+
+**Features:**
+
+- Mailspring no longer requires a Mailspring ID! You can opt-out in the app's setup flow and connect your email accounts without first creating a Mailspring ID. Doing so disables features that require paid APIs and cloud data storage (send later, read receipts, etc.), but you can opt in and create an account at any time from Preferences > Subscription.
+
+- Mailspring has moved to Discourse for bug, feature, and issue management, and the app now links to resources in the community instead of Zendesk! (#2263)
+
+- A third display mode allows you to vertically stack the inbox and message panes! (#2243)
+
+- Preferences > General now allows you to choose "Send and Archive" as the default send behavior (#2295)
+
+**Fixes:**
+
+- On Linux, a new desktop action allows you to compose new e-mail #2276
+
+- Emails with an unsubscribe link now display an unsubscribe option above the message body (#2275)
+
+- Closing the main window when the system tray / background notifications are disabled quits Mailspring (#2279)
+
+- Portguese, Korean, and Czech are now verified localizations, thanks to @smarquespt, @Indosaram and @BlueManCZ!
+
+- "Run on Startup" UI state is now persistent #2265 (#2266) (Thanks @codemouse92)
+
+- The tray icon does not appear multiple times on linux (#2262) (Thanks @Phylu)
+
+- Decrease container minWidth to allow window to snap to half a screen (#2283)
+
+- Background start now works in maximized mode (#2259)
+
+- Select all keyboard shortcuts now match your OS as well as the shortcuts template (#2260)
+
+- A new menu item allows you to "Mark All as Read" in one action (#2164)
+
+- Handle nautilus-sendto links (#2291)
+
+- The subject header now appears in expanded message view (#2293)
+
+- Messages containing large blocks of machine-generated text (eg adaptivecards) no longer take forever to display.
+
+- Emails with reminders now display the "header toggle control" in the correct position.
+
+**Developer:**
+
+- Mailspring now uses Electron 8.5.5 which includes performance improvements and security patches.
+
+- "Toggle Localizer Tools" has been removed, please use PRs to submit localizations!
+
 ### 1.8.0 (1/19/2021)
 
 **Features:**

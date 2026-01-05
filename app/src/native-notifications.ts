@@ -12,20 +12,10 @@ const DEFAULT_ICON = path.resolve(
   'mailspring.png'
 );
 
-let MacNotifierNotification = null;
-if (platform === 'darwin') {
-  try {
-    MacNotifierNotification = require('node-mac-notifier');
-  } catch (err) {
-    console.error(
-      'node-mac-notifier (a platform-specific optionalDependency) was not installed correctly! Check the Travis build log for errors.'
-    );
-  }
-}
-
-type INotificationCallback = (
-  args: { response: string | null; activationType: 'replied' | 'clicked' }
-) => any;
+type INotificationCallback = (args: {
+  response: string | null;
+  activationType: 'replied' | 'clicked';
+}) => any;
 
 type INotificationOptions = {
   title?: string;
@@ -41,23 +31,17 @@ class NativeNotifications {
   private resolvedIcon: string = null;
 
   constructor() {
-    if (MacNotifierNotification) {
-      AppEnv.onBeforeUnload(() => {
-        Object.keys(this._macNotificationsByTag).forEach(key => {
-          this._macNotificationsByTag[key].close();
-        });
-        return true;
-      });
-    }
     this.resolvedIcon = this.getIcon();
   }
 
-  doNotDisturb() {
-    if (platform === 'win32' && require('windows-quiet-hours').getIsQuietHours()) {
-      return true;
-    }
-    if (platform === 'darwin' && require('macos-notification-state').getDoNotDisturb()) {
-      return true;
+  async doNotDisturb(): Promise<boolean> {
+    if (platform === 'darwin') {
+      try {
+        return await require('macos-notification-state').getDoNotDisturb();
+      } catch (e) {
+        console.warn('Failed to check Do Not Disturb status:', e);
+        return false;
+      }
     }
     return false;
   }
@@ -126,50 +110,25 @@ class NativeNotifications {
     return DEFAULT_ICON;
   }
 
-  displayNotification({
+  async displayNotification({
     title,
     subtitle,
     body,
     tag,
     canReply,
     onActivate = args => {},
-  }: INotificationOptions = {}) {
-    let notif = null;
-
-    if (this.doNotDisturb()) {
+  }: INotificationOptions = {}): Promise<Notification | null> {
+    if (await this.doNotDisturb()) {
       return null;
     }
 
-    if (MacNotifierNotification) {
-      if (tag && this._macNotificationsByTag[tag]) {
-        this._macNotificationsByTag[tag].close();
-      }
-      notif = new MacNotifierNotification(title, {
-        bundleId: 'com.mailspring.mailspring',
-        canReply: canReply,
-        subtitle: subtitle,
-        body: body,
-        id: tag,
-        icon: this.resolvedIcon,
-      });
-      notif.addEventListener('reply', ({ response }) => {
-        onActivate({ response, activationType: 'replied' });
-      });
-      notif.addEventListener('click', () => {
-        onActivate({ response: null, activationType: 'clicked' });
-      });
-      if (tag) {
-        this._macNotificationsByTag[tag] = notif;
-      }
-    } else {
-      notif = new Notification(title, {
-        silent: true,
-        body: subtitle,
-        tag: tag,
-        icon: this.resolvedIcon,
-      });
-      notif.onclick = onActivate;
-    }
+    const notif = new Notification(title, {
+      silent: true,
+      body: subtitle,
+      tag: tag,
+      icon: this.resolvedIcon,
+    });
+    notif.onclick = onActivate;
     return notif;
   }
 }

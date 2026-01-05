@@ -3,7 +3,6 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { Flexbox, EditableList, ComposerEditor, ComposerSupport } from 'mailspring-component-kit';
 import { Actions, localized, localizedReactFragment } from 'mailspring-exports';
-import { shell } from 'electron';
 import { Value } from 'slate';
 
 import TemplateStore from './template-store';
@@ -12,7 +11,9 @@ interface ITemplate {
   path: string;
   name: string;
 }
-const { Conversion: { convertFromHTML, convertToHTML } } = ComposerSupport;
+const {
+  Conversion: { convertFromHTML, convertToHTML },
+} = ComposerSupport;
 
 interface TemplateEditorProps {
   template: ITemplate;
@@ -82,7 +83,7 @@ class TemplateEditor extends React.Component<
         <div className="section note">
           {localizedReactFragment(
             'Changes are saved automatically. View the %@ for tips and tricks.',
-            <a href="https://foundry376.zendesk.com/hc/en-us/articles/115001875231-Using-quick-reply-templates">
+            <a href="https://community.getmailspring.com/t/reply-faster-with-email-templates/167">
               {localized('Templates Guide')}
             </a>
           )}
@@ -93,7 +94,7 @@ class TemplateEditor extends React.Component<
 }
 
 export default class PreferencesTemplates extends React.Component<
-  {},
+  Record<string, unknown>,
   { selected: ITemplate; templates: ITemplate[] }
 > {
   static displayName = 'PreferencesTemplates';
@@ -174,11 +175,15 @@ export default class PreferencesTemplates extends React.Component<
               />
               <a
                 style={{
-                  marginTop: 10,
                   display: 'block',
                   fontSize: '0.9em',
+                  padding: 6,
+                  margin: -6,
+                  marginTop: 4,
                 }}
-                onClick={() => shell.showItemInFolder(TemplateStore.directory())}
+                onClick={() =>
+                  require('@electron/remote').shell.showItemInFolder(TemplateStore.directory())
+                }
               >
                 {localized('Show Templates Folder...')}
               </a>

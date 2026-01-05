@@ -2,15 +2,14 @@
 import path from 'path';
 import createDebug from 'debug';
 import childProcess, { ChildProcess } from 'child_process';
-import LRU from 'lru-cache';
+import { LRUCache } from 'lru-cache';
 import Sqlite3 from 'better-sqlite3';
-import { remote } from 'electron';
+
 import { ExponentialBackoffScheduler } from '../../backoff-schedulers';
 import { Model } from '../models/model';
 import MailspringStore from '../../global/mailspring-store';
 import * as Utils from '../models/utils';
 import Query from '../models/query';
-import DatabaseChangeRecord from './database-change-record';
 
 const debug = createDebug('app:RxDB');
 const debugVerbose = createDebug('app:RxDB:all');
@@ -39,7 +38,7 @@ function handleUnrecoverableDatabaseError(
   err = new Error(`Manually called handleUnrecoverableDatabaseError`)
 ) {
   AppEnv.errorLogger.reportError(err);
-  const app = remote.getGlobal('application');
+  const app = require('@electron/remote').getGlobal('application');
   if (!app) {
     throw new Error('handleUnrecoverableDatabaseError: `app` is not ready!');
   }
@@ -130,11 +129,9 @@ are in your displayed set before refreshing.
 Section: Database
 */
 class DatabaseStore extends MailspringStore {
-  static ChangeRecord = DatabaseChangeRecord;
-
   _open = false;
   _waiting = [];
-  _preparedStatementCache = new LRU<string, Sqlite3.Statement<any[]>>({ max: 500 });
+  _preparedStatementCache = new LRUCache<string, Sqlite3.Statement<any[]>>({ max: 500 });
   _databasePath = databasePath(AppEnv.getConfigDirPath(), AppEnv.inSpecMode());
   _db?: Sqlite3.Database;
 
@@ -159,9 +156,14 @@ class DatabaseStore extends MailspringStore {
   }
 
   _prettyConsoleLog(qa) {
+    const darkTheme =
+        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches,
+      primaryColor = darkTheme ? 'white' : 'black',
+      purpleColor = darkTheme ? 'pink' : 'purple';
+
     let q = qa.replace(/%/g, '%%');
-    q = `color:black |||%c ${q}`;
-    q = q.replace(/`(\w+)`/g, '||| color:purple |||%c$&||| color:black |||%c');
+    q = `color:${primaryColor} |||%c ${q}`;
+    q = q.replace(/`(\w+)`/g, `||| color:${purpleColor} |||%c$&||| color:${primaryColor} |||%c`);
 
     const colorRules = {
       'color:green': [
@@ -187,7 +189,7 @@ class DatabaseStore extends MailspringStore {
       for (const keyword of colorRules[style]) {
         q = q.replace(
           new RegExp(`\\b${keyword}\\b`, 'g'),
-          `||| ${style} |||%c${keyword}||| color:black |||%c`
+          `||| ${style} |||%c${keyword}||| color:${primaryColor} |||%c`
         );
       }
     }
@@ -212,6 +214,7 @@ class DatabaseStore extends MailspringStore {
   // If a query is made before the database has been opened, the query will be
   // held in a queue and run / resolved when the database is ready.
   _query(query: SQLString, values: SQLValue[] = [], background = false) {
+    // eslint-disable-next-line no-async-promise-executor
     return new Promise<{ [key: string]: any }[]>(async (resolve, reject) => {
       if (!this._open) {
         this._waiting.push(() => this._query(query, values).then(resolve, reject));
@@ -330,7 +333,7 @@ class DatabaseStore extends MailspringStore {
 
         // Some errors require action before the query can be retried
         if (new RegExp(schemaChangedStr, 'i').test(errString)) {
-          this._preparedStatementCache.del(query);
+          this._preparedStatementCache.delete(query);
         }
       }
       scheduler.nextDelay();
@@ -356,7 +359,8 @@ class DatabaseStore extends MailspringStore {
         if (this._agent) this._agent.kill('SIGTERM');
         this._agent = null;
       });
-      this._agent.on('message', ({ type, id, results, agentTime }) => {
+      this._agent.on('message', (message: Record<string, any>) => {
+        const { type, id, results, agentTime } = message;
         if (type === 'results' && this._agentOpenQueries[id]) {
           this._agentOpenQueries[id]({ results, agentTime });
           delete this._agentOpenQueries[id];
@@ -364,6 +368,7 @@ class DatabaseStore extends MailspringStore {
       });
     }
 
+    // eslint-disable-next-line no-async-promise-executor
     return new Promise<AgentResponse>(async resolve => {
       if (!this._agent) {
         // Something bad has happened and we were immediately unable to spawn the query helper.

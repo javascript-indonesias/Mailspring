@@ -1,5 +1,5 @@
 import _ from 'underscore';
-import uuidv4 from 'uuid/v4';
+import { v4 as uuidv4 } from 'uuid';
 import * as Actions from '../actions';
 import DatabaseStore from './database-store';
 import { AccountStore } from './account-store';
@@ -50,7 +50,7 @@ class DraftFactory {
     // Be sure to match over multiple lines with [\s\S]*
     // Regex explanation here: https://regex101.com/r/vO6eN2/1
     let transformed = (content || '').replace(cidRegexp, '');
-    transformed = await SanitizeTransformer.run(transformed, SanitizeTransformer.Preset.UnsafeOnly);
+    transformed = await SanitizeTransformer.run(transformed);
     transformed = await InlineStyleTransformer.run(transformed);
     return transformed;
   }
@@ -334,7 +334,7 @@ class DraftFactory {
 
       // Remove participants present in the reply-all set and not the reply set
       for (const key of ['to', 'cc']) {
-        updated[key] = _.reject<Contact>(updated[key], contact => {
+        updated[key] = _.reject<Contact[]>(updated[key], contact => {
           const inReplySet = _.findWhere(replySet[key], { email: contact.email });
           const inReplyAllSet = _.findWhere(replyAllSet[key], { email: contact.email });
           return inReplyAllSet && !inReplySet;

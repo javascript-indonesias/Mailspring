@@ -106,6 +106,7 @@ export class Account extends ModelWithMetadata {
     smtp_allow_insecure_ssl: boolean;
     smtp_security: 'SSL / TLS' | 'STARTTLS' | 'none';
     refresh_token: string;
+    container_folder: string;
   };
   public label: string;
   public autoaddress: AccountAutoaddress;
@@ -189,8 +190,12 @@ export class Account extends ModelWithMetadata {
       return 'Yahoo';
     } else if (this.provider === 'imap') {
       return 'IMAP';
+    } else if (this.provider === 'yandex') {
+      return 'Yandex';
     } else if (this.provider === 'office365') {
       return 'Office 365';
+    } else if (this.provider === 'outlook') {
+      return 'Outlook';
     }
     return this.provider;
   }

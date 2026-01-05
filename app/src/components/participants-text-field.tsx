@@ -1,5 +1,5 @@
 import React from 'react';
-import { remote, clipboard, ipcRenderer } from 'electron';
+import { clipboard, ipcRenderer } from 'electron';
 import {
   localized,
   PropTypes,
@@ -40,7 +40,7 @@ TokenRenderer.propTypes = {
 type ParticipantsTextFieldProps = {
   field?: string;
   label?: string;
-  participants: object;
+  participants: { to: Contact[]; cc: Contact[]; bcc: Contact[] };
   change: (...args: any[]) => any;
   className?: string;
   onEmptied?: (...args: any[]) => any;
@@ -201,8 +201,8 @@ export default class ParticipantsTextField extends React.Component<ParticipantsT
 
   _onShowContextMenu = participant => {
     // Warning: Menu is already initialized as Menu.ts!
-    const MenuClass = remote.Menu;
-    const MenuItem = remote.MenuItem;
+    const MenuClass = require('@electron/remote').Menu;
+    const MenuItem = require('@electron/remote').MenuItem;
 
     const menu = new MenuClass();
     menu.append(
@@ -243,7 +243,7 @@ export default class ParticipantsTextField extends React.Component<ParticipantsT
   render() {
     return (
       <div className={this.props.className}>
-        <TokenizingTextField
+        <TokenizingTextField<Contact>
           ref={el => {
             this._textfieldEl = el;
           }}

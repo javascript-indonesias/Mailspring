@@ -49,12 +49,16 @@ class SystemStartServiceDarwin extends SystemStartServiceBase {
   }
 
   configureToLaunchOnSystemStart() {
-    fs.writeFile(this._plistPath(), JSON.stringify(this._launchdPlist()), err => {
-      if (err) {
-        this._displayError(err);
-      } else {
-        exec(`plutil -convert xml1 ${this._plistPath()}`);
-      }
+    fs.mkdir(this._plistDir(), { recursive: true }, err => {
+      if (err) return this._displayError(err);
+
+      fs.writeFile(this._plistPath(), JSON.stringify(this._launchdPlist()), err => {
+        if (err) {
+          this._displayError(err);
+        } else {
+          exec(`plutil -convert xml1 ${this._plistPath()}`);
+        }
+      });
     });
   }
 
@@ -83,11 +87,14 @@ class SystemStartServiceDarwin extends SystemStartServiceBase {
     return path.join(process.env.HOME, 'Library', 'LaunchAgents', 'com.mailspring.plist');
   }
 
+  _plistDir() {
+    return path.join(process.env.HOME, 'Library', 'LaunchAgents');
+  }
+
   _launchdPlist() {
     return {
       Label: 'com.mailspring.mailspring',
-      Program: this._launcherPath(),
-      ProgramArguments: ['--background'],
+      ProgramArguments: [this._launcherPath(), '--background'],
       RunAtLoad: true,
     };
   }

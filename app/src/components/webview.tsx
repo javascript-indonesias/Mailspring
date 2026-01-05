@@ -1,6 +1,4 @@
-import url from 'url';
 import React from 'react';
-import PropTypes from 'prop-types';
 import { shell } from 'electron';
 import ReactDOM from 'react-dom';
 import classnames from 'classnames';
@@ -105,21 +103,6 @@ export default class Webview extends React.Component<WebviewProps, WebviewState>
   componentDidMount() {
     this._mounted = true;
     this._setupWebview(this.props);
-
-    // Workaround: The webview doesn't receive any of the standard commands - they're
-    // caught in the parent page and not forwarded into the focused <webview />, so
-    // we're attaching listeners to the <webview /> node in our DOM and forwarding the
-    // events into the child DOM manually.
-    const webview = ReactDOM.findDOMNode(this.refs.webview) as Electron.WebviewTag;
-    this._disposable = AppEnv.commands.add(webview, {
-      'core:copy': () => webview.getWebContents().copy(),
-      'core:cut': () => webview.getWebContents().cut(),
-      'core:paste': () => webview.getWebContents().paste(),
-      'core:paste-and-match-style': () => webview.getWebContents().pasteAndMatchStyle(),
-      'core:undo': e => webview.getWebContents().undo(),
-      'core:redo': e => webview.getWebContents().redo(),
-      'core:select-all': e => webview.getWebContents().selectAll(),
-    });
   }
 
   componentWillReceiveProps(nextProps: WebviewProps) {
@@ -143,7 +126,7 @@ export default class Webview extends React.Component<WebviewProps, WebviewState>
     const listeners = {
       'did-fail-load': this._webviewDidFailLoad,
       'did-finish-load': this._webviewDidFinishLoad,
-      'did-get-response-details': this._webviewDidGetResponseDetails,
+      'did-frame-navigate': this._webviewDidFrameNavigate,
       'console-message': this._onConsoleMessage,
       'new-window': this._onNewWindow,
 
@@ -167,36 +150,41 @@ export default class Webview extends React.Component<WebviewProps, WebviewState>
   };
 
   _onNewWindow = e => {
-    const { protocol } = url.parse(e.url);
-    if (protocol === 'http:' || protocol === 'https:') {
+    if (/^https?:\/\/.+/i.test(e.url)) {
       shell.openExternal(e.url);
     }
   };
 
   _onConsoleMessage = e => {
-    if (/^http.+/i.test(e.message)) {
+    if (/^https?:\/\/.+/i.test(e.message)) {
       shell.openExternal(e.message);
     }
     console.log('Guest page logged a message:', e.message);
   };
 
-  _webviewDidGetResponseDetails = ({ httpResponseCode, originalURL }) => {
+  _webviewDidFrameNavigate = ({
+    url: navigatedUrl,
+    httpResponseCode,
+    isMainFrame,
+  }: {
+    url: string;
+    httpResponseCode: number;
+    httpStatusText: string;
+    isMainFrame: boolean;
+  }) => {
     if (!this._mounted) return;
-    if (!originalURL.includes(url.parse(this.props.src).host)) {
-      // This means that some other secondarily loaded resource (like
-      // analytics or Linkedin, etc) got a response. We don't care about
-      // that.
-      return;
-    }
+    // Only handle main frame navigation, ignore secondary resources
+    if (!isMainFrame) return;
+
     if (httpResponseCode >= 400) {
       const error = localized(
         `Could not reach Mailspring. Please try again or contact support@getmailspring.com if the issue persists. (%@: %@)`,
-        originalURL,
+        navigatedUrl,
         httpResponseCode
       );
       this.setState({ ready: false, error: error, webviewLoading: false });
     }
-    this.setState({ webviewLoading: false });
+    this.setState({ ready: true, webviewLoading: false });
   };
 
   _webviewDidFailLoad = ({ errorCode, validatedURL }) => {
@@ -233,7 +221,7 @@ export default class Webview extends React.Component<WebviewProps, WebviewState>
   render() {
     return (
       <div className="webview-wrap">
-        <webview ref="webview" partition="in-memory-only" />
+        <webview ref="webview" partition="in-memory-only" enableremotemodule="false" />
         <div className={`webview-loading-spinner loading-${this.state.webviewLoading}`}>
           <RetinaImg
             style={{ width: 20, height: 20 }}

@@ -35,6 +35,7 @@ const Types = {
   None: 'None',
   Enum: 'Enum',
   String: 'String',
+  InputString: 'InputString'
 };
 
 export const Comparators = {
@@ -100,7 +101,7 @@ export const Comparators = {
         if (!actual || !desired) {
           return actual === desired;
         }
-        return actual.toLowerCase() === desired.toLowerCase()
+        return actual.toLowerCase() === desired.toLowerCase();
       }
     ),
 
@@ -135,7 +136,7 @@ export class Template {
   values: Observable<TemplateEnumValue[]> | TemplateEnumValue[] | undefined;
   valueLabel: string | undefined;
   valueForMessage?: (message: Message) => any;
-  comparators: {};
+  comparators: { [comparatorKey: string]: Comparator };
 
   constructor(key, type, options: Partial<Template> = {}) {
     this.key = key;

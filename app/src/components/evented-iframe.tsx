@@ -45,7 +45,7 @@ Any `props` added to the <EventedIFrame> are passed to the iFrame it renders.
 Section: Component Kit
 */
 export class EventedIFrame extends React.Component<
-  EventedIFrameProps & React.HTMLProps<HTMLDivElement>
+  EventedIFrameProps & React.HTMLProps<HTMLIFrameElement>
 > {
   static displayName = 'EventedIFrame';
 
@@ -299,8 +299,8 @@ export class EventedIFrame extends React.Component<
     // "Copy Image" and "Search Google for 'Bla'"
     event.preventDefault();
 
-    const { remote, clipboard, shell, ipcRenderer } = require('electron');
-    const { Menu, MenuItem } = remote;
+    const { clipboard, shell, ipcRenderer } = require('electron');
+    const { Menu, MenuItem } = require('@electron/remote');
     const menu = new Menu();
 
     // Menu actions for links
@@ -363,7 +363,9 @@ export class EventedIFrame extends React.Component<
               oReq.responseType = 'arraybuffer';
               oReq.onload = function() {
                 const buffer = Buffer.from(new Uint8Array(oReq.response));
-                fs.writeFile(path, buffer, err => shell.showItemInFolder(path));
+                fs.writeFile(path, buffer, err => {
+                  require('@electron/remote').shell.showItemInFolder(path);
+                });
               };
               oReq.send();
             });

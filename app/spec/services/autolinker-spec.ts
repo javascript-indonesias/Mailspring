@@ -16,8 +16,13 @@ describe('autolink', function autolinkSpec() {
         const expected = fs.readFileSync(expectedPath).toString();
 
         div.innerHTML = input;
-        Autolink(div);
+        Autolink(div, { async: false, telAggressiveMatch: false });
 
+        // if (div.innerHTML !== expected) {
+        //   const inputPath = path.join(fixturesDir, filename);
+        //   const actualPath = inputPath.replace('-in', '-actual');
+        //   fs.writeFileSync(actualPath, div.innerHTML);
+        // }
         expect(div.innerHTML).toEqual(expected);
       });
     });

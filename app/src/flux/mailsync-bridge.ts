@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs';
-import { ipcRenderer, remote } from 'electron';
+import { ipcRenderer } from 'electron';
 import { localized } from '../intl';
 import _ from 'underscore';
 
@@ -12,12 +12,13 @@ import { Account } from './models/account';
 import { AccountStore } from './stores/account-store';
 import DatabaseStore from './stores/database-store';
 import OnlineStatusStore from './stores/online-status-store';
-import DatabaseChangeRecord from './stores/database-change-record';
+import { DatabaseChangeRecord } from './stores/database-change-record';
 import DatabaseObjectRegistry from '../registries/database-object-registry';
 import { MailsyncProcess, MailsyncProcessExit } from '../mailsync-process';
 import KeyManager from '../key-manager';
 import * as Actions from './actions';
 import * as Utils from './models/utils';
+import { Model } from 'mailspring-exports';
 
 const MAX_CRASH_HISTORY = 10;
 
@@ -116,7 +117,7 @@ export default class MailsyncBridge {
   openLogs() {
     const { configDirPath } = AppEnv.getLoadSettings();
     const configDirItem = path.join(configDirPath, 'config.json');
-    require('electron').shell.showItemInFolder(configDirItem); // eslint-disable-line
+    require('@electron/remote').shell.showItemInFolder(configDirItem); // eslint-disable-line
   }
 
   toggleVerboseLogging() {
@@ -139,8 +140,8 @@ export default class MailsyncBridge {
       title: localized(`Verbose logging is now %@`, phrase),
       message,
     });
-    remote.app.relaunch();
-    remote.app.quit();
+    require('@electron/remote').app.relaunch();
+    require('@electron/remote').app.quit();
   }
 
   clients() {
@@ -184,7 +185,7 @@ export default class MailsyncBridge {
       const buffer = Buffer.alloc(tailSize);
       const fd = fs.openSync(logpath, 'r');
       fs.readSync(fd, buffer, 0, tailSize, size - tailSize);
-      log = buffer.toString('UTF8');
+      log = buffer.toString('utf-8');
       log = log.substr(log.indexOf('\n') + 1);
     } catch (logErr) {
       console.warn(`Could not append ${logfile} to mailsync exception report: ${logErr}`);
@@ -237,7 +238,7 @@ export default class MailsyncBridge {
       AppEnv.showErrorDialog({
         title: localized(`Cleanup Started`),
         message: localized(
-          `Mailspring is clearing it's cache for %@. Depending on the size of the mailbox, this may take a few seconds or a few minutes. An alert will appear when cleanup is complete.`,
+          `Mailspring is clearing its cache %@. Depending on the size of the mailbox, this may take a few seconds or a few minutes. An alert will appear when cleanup is complete.`,
           account.emailAddress
         ),
       });
@@ -415,6 +416,10 @@ export default class MailsyncBridge {
         OnlineStatusStore.onSyncProcessStateReceived(modelJSONs[0]);
         continue;
       }
+      if (modelClass === 'ProcessAccountSecretsUpdated' && modelJSONs.length) {
+        KeyManager.extractAndStoreAccountSecrets(new Account(modelJSONs[0]));
+        continue;
+      }
 
       // dispatch the message to other windows
       ipcRenderer.send('mailsync-bridge-rebroadcast-to-all', msg);
@@ -431,7 +436,7 @@ export default class MailsyncBridge {
     }
   };
 
-  _onIncomingChangeRecord = (record: DatabaseChangeRecord) => {
+  _onIncomingChangeRecord = (record: DatabaseChangeRecord<Model>) => {
     // Allow observers of the database to handle this change
     DatabaseStore.trigger(record);
 
@@ -480,7 +485,11 @@ export default class MailsyncBridge {
     // If other windows are open, delay the closing of the main window
     // by 400ms the first time beforeUnload is called so other windows
     // ave a chance to save drafts before we kill the workers.
-    if (remote.getGlobal('application').windowManager.getOpenWindowCount() <= 1) {
+    if (
+      require('@electron/remote')
+        .getGlobal('application')
+        .windowManager.getOpenWindowCount() <= 1
+    ) {
       return true;
     }
     if (this._lastWait && Date.now() - this._lastWait < 2000) {

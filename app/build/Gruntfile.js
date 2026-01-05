@@ -48,7 +48,7 @@ module.exports = grunt => {
 
   grunt.registerTask('docs', ['docs-build', 'docs-render']);
 
-  grunt.registerTask('lint', ['eslint', 'lesslint', 'csslint']);
+  grunt.registerTask('lint', ['eslint']);
 
   if (grunt.option('platform') === 'win32') {
     grunt.registerTask('build-client', [
@@ -56,7 +56,7 @@ module.exports = grunt => {
       // The Windows electron-winstaller task must be run outside of grunt
     ]);
   } else if (grunt.option('platform') === 'darwin') {
-    grunt.registerTask('build-client', ['package', 'create-mac-zip', 'create-mac-dmg']);
+    grunt.registerTask('build-client', ['package', 'create-mac-zip']);
   } else if (grunt.option('platform') === 'linux') {
     grunt.registerTask('build-client', ['package', 'create-deb-installer', 'create-rpm-installer']);
   }

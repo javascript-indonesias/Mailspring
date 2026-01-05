@@ -1,5 +1,5 @@
 import { localized, React } from 'mailspring-exports';
-import { ipcRenderer, remote, shell } from 'electron';
+import { ipcRenderer, shell } from 'electron';
 import { Notification } from 'mailspring-component-kit';
 import { Disposable } from 'event-kit';
 
@@ -9,7 +9,10 @@ interface UpdateNotificationState {
   updateIsManual: boolean;
 }
 
-export default class UpdateNotification extends React.Component<{}, UpdateNotificationState> {
+export default class UpdateNotification extends React.Component<
+  Record<string, unknown>,
+  UpdateNotificationState
+> {
   static displayName = 'UpdateNotification';
 
   disposable?: Disposable;
@@ -30,7 +33,7 @@ export default class UpdateNotification extends React.Component<{}, UpdateNotifi
   }
 
   getStateFromStores() {
-    const updater = remote.getGlobal('application').autoUpdateManager;
+    const updater = require('@electron/remote').getGlobal('application').autoUpdateManager;
     const updateAvailable = updater.getState() === 'update-available';
     const info = updateAvailable ? updater.getReleaseDetails() : {};
     return {

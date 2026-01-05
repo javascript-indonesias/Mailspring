@@ -1,6 +1,7 @@
 import MailspringStore from 'mailspring-store';
-import { remote } from 'electron';
+
 import url from 'url';
+import querystring from 'querystring';
 
 import * as Utils from '../models/utils';
 import * as Actions from '../actions';
@@ -9,7 +10,7 @@ import { makeRequest, rootURLForServer } from '../mailspring-api-request';
 import { Disposable } from 'event-kit';
 
 // Note this key name is used when migrating to Mailspring Pro accounts from old N1.
-const KEYCHAIN_NAME = 'Mailspring Account';
+const PASSWORD_NAME = 'Mailspring Account';
 
 export interface IIdentity {
   id: string;
@@ -29,16 +30,7 @@ export interface IIdentity {
   };
 }
 
-export const EMPTY_IDENTITY: IIdentity = {
-  id: '',
-  token: '',
-  firstName: '',
-  lastName: '',
-  emailAddress: '',
-  stripePlan: 'basic',
-  stripePlanEffective: '',
-  featureUsage: {},
-};
+export type IdentityAuthResponse = IIdentity | { skipped: true };
 
 export const EMPTY_FEATURE_USAGE = {
   featureLimitName: 'pro',
@@ -49,6 +41,7 @@ export const EMPTY_FEATURE_USAGE = {
 
 class _IdentityStore extends MailspringStore {
   _identity: IIdentity = null;
+  _displayedPasswordError = false;
   _disp: Disposable;
 
   constructor() {
@@ -103,10 +96,10 @@ class _IdentityStore extends MailspringStore {
     }, 1000 * 60 * 10); // 10 minutes
   }
 
-  async saveIdentity(identity) {
+  async saveIdentity(identity: IIdentity | null) {
     if (!identity) {
       this._identity = null;
-      await KeyManager.deletePassword(KEYCHAIN_NAME);
+      await KeyManager.deletePassword(PASSWORD_NAME);
       AppEnv.config.set('identity', null);
       return;
     }
@@ -122,7 +115,7 @@ class _IdentityStore extends MailspringStore {
       // Note: We /must/ await this because calling config.set below
       // will try to retrieve the password via getPassword.
       // If this fails, the app may quit here.
-      await KeyManager.replacePassword(KEYCHAIN_NAME, nextToken);
+      await KeyManager.replacePassword(PASSWORD_NAME, nextToken);
     }
 
     this._identity = identity;
@@ -138,9 +131,22 @@ class _IdentityStore extends MailspringStore {
    * cache and set the token from the keychain.
    */
   _onIdentityChanged = async () => {
-    const next = Object.assign({}, AppEnv.config.get('identity') || {});
-    next.token = await KeyManager.getPassword(KEYCHAIN_NAME);
-    this._identity = next;
+    const value = AppEnv.config.get('identity');
+    this._identity = value
+      ? { ...value, token: await KeyManager.getPassword(PASSWORD_NAME) }
+      : null;
+
+    if (this._identity && !this._identity.token) {
+      const message = `Your Mailspring ID password could not be loaded from your keychain. Please visit Preferences > Subscription and click "Setup Mailspring ID" to sign in to your Mailspring account again.\n\nYour Mailspring ID email address is ${this._identity.emailAddress}.`;
+      console.warn(message);
+
+      if (!this._displayedPasswordError) {
+        this._displayedPasswordError = true;
+        AppEnv.showErrorDialog({ title: 'Please Sign In', message });
+      }
+      this._identity = null;
+    }
+
     this.trigger();
   };
 
@@ -148,8 +154,8 @@ class _IdentityStore extends MailspringStore {
     await this.saveIdentity(null);
     // We need to relaunch the app to clear the webview session
     // and prevent the webview from re signing in with the same MailspringID
-    remote.app.relaunch();
-    remote.app.quit();
+    require('@electron/remote').app.relaunch();
+    require('@electron/remote').app.quit();
   };
 
   /**
@@ -198,8 +204,7 @@ class _IdentityStore extends MailspringStore {
     try {
       const json = await makeRequest({
         server: 'identity',
-        path: '/api/login-link',
-        qs: qs,
+        path: `/api/login-link?${querystring.stringify(qs)}`,
         body: body,
         timeout: 1500,
         method: 'POST',

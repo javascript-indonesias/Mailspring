@@ -1,5 +1,5 @@
 window.eval = global.eval = function() {
-  throw new Error('Sorry, N1 does not support window.eval() for security reasons.');
+  throw new Error('Sorry, Mailspring does not support window.eval() for security reasons.');
 };
 
 var util = null;
@@ -18,7 +18,7 @@ function setLoadTime(loadTime) {
 }
 
 function handleSetupError(error) {
-  var currentWindow = require('electron').remote.getCurrentWindow();
+  var currentWindow = require('@electron/remote').getCurrentWindow();
   currentWindow.setSize(800, 600);
   currentWindow.center();
   currentWindow.show();
@@ -27,8 +27,11 @@ function handleSetupError(error) {
 }
 
 function copyEnvFromMainProcess() {
-  const remote = require('electron').remote; //eslint-disable-line
-  const newEnv = Object.assign({}, process.env, JSON.parse(JSON.stringify(remote.process.env)));
+  const newEnv = Object.assign(
+    {},
+    process.env,
+    JSON.parse(JSON.stringify(require('@electron/remote').process.env))
+  );
   process.env = newEnv;
 }
 
@@ -42,16 +45,7 @@ function setupWindow(loadSettings) {
   var CompileCache = require('../src/compile-cache');
   CompileCache.setHomeDirectory(loadSettings.configDirPath);
 
-  setupVmCompatibility();
-
   require(loadSettings.bootstrapScript);
-}
-
-function setupVmCompatibility() {
-  var vm = require('vm');
-  if (!vm.Script.createContext) {
-    vm.Script.createContext = vm.createContext;
-  }
 }
 
 window.onload = function() {

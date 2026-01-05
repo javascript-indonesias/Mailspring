@@ -12,6 +12,11 @@ import fs from 'fs';
 import { localized } from './intl';
 import { IIdentity, Account } from 'mailspring-exports';
 
+import {
+  GMAIL_CLIENT_ID,
+  GMAIL_CLIENT_SECRET,
+} from '../internal_packages/onboarding/lib/onboarding-constants';
+
 let Utils = null;
 
 export interface MailsyncProcessExit {
@@ -56,7 +61,7 @@ export const LocalizedErrorStrings = {
   // sending related
   ErrorSendMessageNotAllowed: localized('Sending is not enabled for this account.'),
   ErrorSendMessageIllegalAttachment: localized(
-    'The message contains an illegial attachment that is not allowed by the server.'
+    'The message contains an illegal attachment that is not allowed by the server.'
   ),
   ErrorYahooSendMessageSpamSuspected: localized(
     "The message has been blocked by Yahoo's outbound spam filter."
@@ -100,7 +105,14 @@ export class MailsyncProcess extends EventEmitter {
 
   _showStatusWindow(mode) {
     if (this._win) return;
-    const { BrowserWindow } = require('electron');
+
+    let BrowserWindow;
+    if (process.type === 'renderer') {
+      BrowserWindow = require('@electron/remote').BrowserWindow;
+    } else {
+      BrowserWindow = require('electron').BrowserWindow;
+    }
+
     this._win = new BrowserWindow({
       width: 350,
       height: 108,
@@ -112,7 +124,12 @@ export class MailsyncProcess extends EventEmitter {
       maximizable: false,
       closable: false,
       fullscreenable: false,
-      webPreferences: { nodeIntegration: false, javascript: false, contextIsolation: false },
+      webPreferences: {
+        nodeIntegration: false,
+        javascript: false,
+        contextIsolation: false,
+        enableRemoteModule: true,
+      },
     });
     this._win.setContentSize(350, 90);
     this._win.once('ready-to-show', () => {
@@ -137,6 +154,8 @@ export class MailsyncProcess extends EventEmitter {
   _spawnProcess(mode) {
     const env = {
       CONFIG_DIR_PATH: this.configDirPath,
+      GMAIL_CLIENT_ID: GMAIL_CLIENT_ID,
+      GMAIL_CLIENT_SECRET: GMAIL_CLIENT_SECRET,
       IDENTITY_SERVER: 'unknown',
     };
     if (process.type === 'renderer') {
@@ -169,10 +188,7 @@ export class MailsyncProcess extends EventEmitter {
         const rs = new Readable();
         rs.push(`${JSON.stringify(this.account)}\n${JSON.stringify(this.identity)}\n`);
         rs.push(null);
-        rs.pipe(
-          this._proc.stdin,
-          { end: false }
-        );
+        rs.pipe(this._proc.stdin, { end: false });
       });
     }
   }
@@ -217,7 +233,7 @@ export class MailsyncProcess extends EventEmitter {
 
         try {
           const lastLine = buffer
-            .toString('UTF-8')
+            .toString('utf-8')
             .split('\n')
             .pop();
           const response = JSON.parse(lastLine);
@@ -256,7 +272,12 @@ export class MailsyncProcess extends EventEmitter {
     if (this._proc.stdout) {
       this._proc.stdout.on('data', data => {
         const added = data.toString();
-        outBuffer += added;
+        try {
+          outBuffer += added;
+        } catch (err) {
+          console.error(`Mailsync process buffer is ${outBuffer.length} chars, out of memory.`);
+          outBuffer = '';
+        }
 
         if (added.indexOf('\n') !== -1) {
           const msgs = outBuffer.split('\n');
@@ -284,7 +305,16 @@ export class MailsyncProcess extends EventEmitter {
       let error = null;
       let lastJSON = null;
       try {
-        lastJSON = outBuffer.length && JSON.parse(outBuffer);
+        if (outBuffer.length) {
+          // Skip debug output that starts with 'dbg::' prefix
+          if (outBuffer.startsWith('dbg::')) {
+            console.log('Skipping debug output from mailsync:', outBuffer);
+          } else {
+            lastJSON = JSON.parse(outBuffer);
+          }
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse mailsync output as JSON:', outBuffer);
       } finally {
         if (lastJSON) {
           if (lastJSON.error) {
@@ -321,7 +351,7 @@ export class MailsyncProcess extends EventEmitter {
     console.log(`Sending to mailsync ${this.account ? this.account.id : '?'}`, json);
     const msg = `${JSON.stringify(json)}\n`;
     try {
-      this._proc.stdin.write(msg, 'UTF8');
+      this._proc.stdin.write(msg, 'utf-8');
     } catch (error) {
       if (error && error.message.includes('socket has been ended')) {
         // The process probably already exited and we missed it somehow,

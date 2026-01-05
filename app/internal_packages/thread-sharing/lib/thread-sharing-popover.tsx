@@ -123,7 +123,7 @@ export default class ThreadSharingPopover extends React.Component<
               {localized('Syncing') + '...'}
               <div className="meta">
                 {localized(
-                  `Mailspring is syncing this thread and it's attachments to the cloud. For long threads, this may take a moment.`
+                  `Mailspring is syncing this thread and its attachments to the cloud. For long threads, this may take a moment.`
                 )}
               </div>
             </label>
@@ -144,7 +144,7 @@ export default class ThreadSharingPopover extends React.Component<
             </label>
           )}
           <div className="meta">
-            <a href="https://foundry376.zendesk.com/hc/en-us/articles/360002360771">
+            <a href="https://community.getmailspring.com/t/share-email-conversations-with-shareable-links/165">
               {localized('Learn More')}
             </a>
           </div>

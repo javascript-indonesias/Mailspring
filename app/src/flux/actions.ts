@@ -62,7 +62,7 @@ interface Action extends ActionFn, Listenable {
   actionName: string;
   scope: 'window' | 'global' | 'main';
   sync: boolean;
-  listen: (callback: (...args: any[]) => any, thisObj?: object) => () => void;
+  listen: (callback: (...args: any[]) => any, thisObj?: any) => () => void;
 }
 
 const scopes: {
@@ -178,6 +178,17 @@ export const updateAccount = create('updateAccount', ActionScopeWindow);
   ```
   */
 export const reorderAccount = create('reorderAccount', ActionScopeWindow);
+
+/*
+  Public: Update provided containerFolderDefault
+
+  *Scope: Window*
+
+  ```
+  Actions.updateContainerFolderDefault(newContainerFolderDefault)
+  ```
+  */
+export const updateContainerFolderDefault = create('updateContainerFolderDefault', ActionScopeWindow);
 
 /*
   Public: Select the provided sheet in the current window. This action changes
@@ -366,6 +377,15 @@ export const composeReply = create('composeReply', ActionScopeWindow);
   *Scope: Window*
   */
 export const composeForward = create('composeForward', ActionScopeWindow);
+
+/*
+  Public: Compose and send a new draft for forwarding the provided threadId and messageId. See
+  {::composeReply} for parameters and behavior.
+
+  *Scope: Window*
+  */
+export const composeAndSendForward = create('composeAndSendForward', ActionScopeWindow);
+
 
 /*
   Public: Pop out the draft with the provided ID so the user can edit it in another

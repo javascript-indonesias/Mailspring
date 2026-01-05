@@ -32,7 +32,10 @@ import ThreadListScrollTooltip from './thread-list-scroll-tooltip';
 import ThreadListStore from './thread-list-store';
 import ThreadListContextMenu from './thread-list-context-menu';
 
-class ThreadList extends React.Component<{}, { style: string; syncing: boolean }> {
+class ThreadList extends React.Component<
+  Record<string, unknown>,
+  { style: string; syncing: boolean }
+> {
   static displayName = 'ThreadList';
 
   static containerStyles = {
@@ -177,12 +180,11 @@ class ThreadList extends React.Component<{}, { style: string; syncing: boolean }
       callback(true);
     };
 
-    const disabledPackages = AppEnv.config.get('core.disabledPackages') || [];
-    if (disabledPackages.includes('thread-snooze')) {
-      return props;
-    }
+    // Technically this should be exposed as an API so thread-snooze can register for this
+    // behavior, but for now we just check for it explicitly.
+    const snoozePresent = AppEnv.packages.isPackageActive('thread-snooze');
 
-    if (FocusedPerspectiveStore.current().isInbox()) {
+    if (snoozePresent && FocusedPerspectiveStore.current().isInbox()) {
       props.onSwipeLeftClass = 'swipe-snooze';
       props.onSwipeCenter = () => {
         Actions.closePopover();

@@ -81,7 +81,8 @@ class InitialPreferencesOptions extends React.Component<
       this.props.config.set('core.keymapTemplate', templateWithBasename('Gmail'));
     } else if (
       this.props.account.provider === 'eas' ||
-      this.props.account.provider === 'office365'
+      this.props.account.provider === 'office365' ||
+      this.props.account.provider === 'outlook'
     ) {
       this.props.config.set('core.workspace.mode', 'split');
       this.props.config.set('core.keymapTemplate', templateWithBasename('Outlook'));
@@ -159,7 +160,10 @@ class InitialPreferencesOptions extends React.Component<
   }
 }
 
-class InitialPreferencesPage extends React.Component<{}, { account: Account }> {
+class InitialPreferencesPage extends React.Component<
+  Record<string, unknown>,
+  { account: Account }
+> {
   static displayName = 'InitialPreferencesPage';
 
   _unlisten?: () => void;

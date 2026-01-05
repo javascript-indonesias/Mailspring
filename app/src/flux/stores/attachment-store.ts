@@ -1,7 +1,7 @@
 import os from 'os';
 import _fs from 'fs';
 import path from 'path';
-import { remote, shell } from 'electron';
+import { shell } from 'electron';
 import mkdirp from 'mkdirp';
 import MailspringStore from 'mailspring-store';
 import DraftStore from './draft-store';
@@ -28,6 +28,8 @@ const fileAccessibleAtPath = async filePath => {
     return false;
   }
 };
+
+export type AttachmentDownloadData = null;
 
 class AttachmentStore extends MailspringStore {
   _filePreviewPaths = {};
@@ -70,14 +72,14 @@ class AttachmentStore extends MailspringStore {
     );
   }
 
-  getDownloadDataForFile(fileId: string): null {
+  getDownloadDataForFile(fileId: string): AttachmentDownloadData {
     // if we ever support downloads again, put this back
     return null;
   }
 
   // Returns a hash of download objects keyed by fileId
   getDownloadDataForFiles(fileIds: string[] = []) {
-    const downloadData: { [fileId: string]: null } = {};
+    const downloadData: { [fileId: string]: AttachmentDownloadData } = {};
     fileIds.forEach(fileId => {
       downloadData[fileId] = this.getDownloadDataForFile(fileId);
     });
@@ -157,7 +159,7 @@ class AttachmentStore extends MailspringStore {
 
   _fetchAndOpen = file => {
     return this._prepareAndResolveFilePath(file)
-      .then(filePath => shell.openItem(filePath))
+      .then(filePath => shell.openPath(filePath))
       .catch(this._catchFSErrors)
       .catch(error => {
         this._presentError({ file, error });
@@ -201,7 +203,7 @@ class AttachmentStore extends MailspringStore {
               AppEnv.config.get('core.attachments.openFolderAfterDownload')
             ) {
               this._lastDownloadDirectory = newDownloadDirectory;
-              shell.showItemInFolder(actualSavePath);
+              require('@electron/remote').shell.showItemInFolder(actualSavePath);
             }
           }
         })
@@ -254,7 +256,7 @@ class AttachmentStore extends MailspringStore {
                 lastSavePaths.length > 0 &&
                 AppEnv.config.get('core.attachments.openFolderAfterDownload')
               ) {
-                shell.showItemInFolder(lastSavePaths[0]);
+                require('@electron/remote').shell.showItemInFolder(lastSavePaths[0]);
               }
               return resolve(lastSavePaths);
             })
@@ -271,13 +273,15 @@ class AttachmentStore extends MailspringStore {
     const ext = path.extname(attemptedPath);
     const dir = path.dirname(attemptedPath);
     let name = path.basename(attemptedPath, ext);
-    const match = /-(\d+)$/.exec(name);
+    // Use " (N)" format for collision counters to avoid conflicts with filenames
+    // that end with hyphen-number patterns (like dates: "report-2023.pdf")
+    const match = / \((\d+)\)$/.exec(name);
     let counter = 0;
     if (match) {
       counter = Number(match[1]);
       name = name.substr(0, match.index);
     }
-    return `${dir}/${name}-${counter + 1}${ext}`;
+    return path.join(dir, `${name} (${counter + 1})${ext}`);
   }
 
   _defaultSaveDir() {
@@ -311,7 +315,7 @@ class AttachmentStore extends MailspringStore {
     const name = file ? file.displayName() : localized('one or more files');
     const errorString = error ? error.toString() : '';
 
-    remote.dialog.showMessageBoxSync({
+    require('@electron/remote').dialog.showMessageBoxSync({
       type: 'warning',
       message: localized('Download Failed'),
       detail: localized(
@@ -337,7 +341,7 @@ class AttachmentStore extends MailspringStore {
     }
 
     if (message) {
-      remote.dialog.showMessageBoxSync({
+      require('@electron/remote').dialog.showMessageBoxSync({
         type: 'warning',
         message: localized('Download Failed'),
         detail: `${message}\n\n${error.message}`,

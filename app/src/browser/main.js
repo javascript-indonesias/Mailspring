@@ -8,7 +8,9 @@ const fs = require('fs');
 fs.statSyncNoException = function(...args) {
   try {
     return fs.statSync.apply(fs, args);
-  } catch (e) {}
+  } catch (e) {
+    //pass
+  }
   return false;
 };
 
@@ -16,7 +18,7 @@ console.inspect = function consoleInspect(val) {
   console.log(util.inspect(val, true, 7, true));
 };
 
-const app = require('electron').app;
+const { app, session } = require('electron');
 const path = require('path');
 const mkdirp = require('mkdirp');
 
@@ -84,6 +86,11 @@ const declareOptions = argv => {
       'safe',
       'Do not load packages from the settings `packages` or `dev/packages` folders.'
     );
+  // The options --enable-crashpad and --allow-file-access-from-files are added to the command line options by electron when opening a second instance of Mailspring.
+  // If they are not defined as boolean options here, they will "swallow" every argument that is passed after them. This leads to the "Send To" functionality not working
+  // if mailspring is already running.
+  options.boolean('enable-crashpad');
+  options.boolean('allow-file-access-from-files');
   options
     .alias('h', 'help')
     .boolean('h')
@@ -144,8 +151,9 @@ const parseCommandLine = argv => {
   const specFilePattern = args['spec-file-pattern'];
   const showSpecsInWindow = specMode === 'window';
   const resourcePath = path.normalize(path.resolve(path.dirname(path.dirname(__dirname))));
-  const urlsToOpen = [];
-  const pathsToOpen = [];
+  let urlsToOpen = [];
+  let pathsToOpen = [];
+  let mailtoLink;
 
   // On Windows and Linux, mailto and file opens are passed in argv. Go through
   // the items and pluck out things that look like mailto:, mailspring:, file paths
@@ -165,9 +173,20 @@ const parseCommandLine = argv => {
       continue;
     }
     if (arg.startsWith('mailto:') || arg.startsWith('mailspring:')) {
-      urlsToOpen.push(arg);
+      // Handle nautilus-sendto links correctly
+      mailtoLink = extractMailtoLink(arg);
+      urlsToOpen = urlsToOpen.concat(mailtoLink.urlsToOpen);
+      pathsToOpen = pathsToOpen.concat(mailtoLink.pathsToOpen);
     } else if (arg[0] !== '-' && /[/|\\]/.test(arg)) {
-      pathsToOpen.push(arg);
+      if (arg.startsWith('?')) {
+        // Handle thunar-sendto links correctly by giving them a similar form
+        // as the nautilus-sendto links by adding a leading `mailto`
+        mailtoLink = extractMailtoLink('mailto:' + arg);
+        urlsToOpen = urlsToOpen.concat(mailtoLink.urlsToOpen);
+        pathsToOpen = pathsToOpen.concat(mailtoLink.pathsToOpen);
+      } else {
+        pathsToOpen.push(arg);
+      }
     }
   }
 
@@ -191,6 +210,36 @@ const parseCommandLine = argv => {
     urlsToOpen,
     pathsToOpen,
   };
+};
+
+const extractMailtoLink = mailtoLink => {
+  console.log(mailtoLink);
+
+  // Handle links in the form mailto:test@example.com?attach=file:///path/to/file.txt
+  // This will handle links e.g. for nautilus-sendto and attach the attachments correctly.
+  // Attachments currently cannot be attached to mails with a recipient,
+  // so if a recipient and an attachment is given two mail windows are opened.
+  let mailCreated = false;
+
+  const urlsToOpen = [];
+  const pathsToOpen = [];
+
+  const mailtoUrl = new URL(mailtoLink);
+  mailtoUrl.searchParams.forEach((value, key) => {
+    if (key === 'attach') {
+      // We need to strip the leading `file://` in order to detect the files
+      pathsToOpen.push(value.replace(/^file:\/\//, ''));
+      mailCreated = true;
+    }
+  });
+
+  // Check if another draft window should be opened if there is a recipient set
+  // Prevents duplicate draft window for links such as mailto:?attach=file:///path/to/file.txt
+  if (!mailCreated || mailtoUrl.pathname !== '') {
+    urlsToOpen.push(mailtoLink);
+  }
+
+  return { urlsToOpen, pathsToOpen };
 };
 
 /*
@@ -236,9 +285,26 @@ const handleStartupEventWithSquirrel = () => {
 
 const start = () => {
   app.setAppUserModelId('com.squirrel.mailspring.mailspring');
+
+  // Set the app name explicitly for Linux to ensure the system tray icon
+  // gets a unique ID. Without this, all Electron apps share the same
+  // StatusNotifierItem ID on Linux, causing their tray visibility settings
+  // to be synchronized. See: https://github.com/electron/electron/issues/40936
+  if (process.platform === 'linux') {
+    app.setName('Mailspring');
+  }
+
   if (handleStartupEventWithSquirrel()) {
     return;
   }
+
+  require('@electron/remote/main').initialize();
+
+  // Configure Chromium command line switches before app ready event.
+  // These must be set before the ready event for them to take effect.
+  // Reference: https://www.electronjs.org/docs/latest/api/command-line-switches
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+  app.commandLine.appendSwitch('js-flags', '--harmony');
 
   const options = parseCommandLine(process.argv);
   global.errorLogger = setupErrorLogger(options);
@@ -278,10 +344,31 @@ const start = () => {
     app.removeListener('open-file', onOpenFileBeforeReady);
     app.removeListener('open-url', onOpenUrlBeforeReady);
 
+    // Setting the Origin Header to 'localhost' when logging in on Office 365
+    // Otherwise O365 will produce a 400 error on the OAuth Login Process
+    const filter = {
+      urls: ['*://login.microsoftonline.com/*'],
+    };
+
+    session.defaultSession
+      .loadExtension(
+        path
+          .join(options.resourcePath, 'static', 'extensions', 'chrome-i18n')
+          .replace('app.asar', 'app.asar.unpacked'),
+        { allowFileAccess: true }
+      )
+      .catch(err => console.error(`Error loading language detection extension: ${err}`));
+
+    session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+      console.log(details);
+      details.requestHeaders['Origin'] = 'localhost';
+      callback({ requestHeaders: details.requestHeaders });
+    });
+
     // Block remote JS execution in a second way in case our <meta> tag approach
     // is compromised somehow https://www.electronjs.org/docs/tutorial/security
     // This CSP string should match the one in app/static/index.html
-    require('electron').session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       if (details.url.startsWith('devtools://')) {
         return callback(details);
       }
@@ -289,7 +376,7 @@ const start = () => {
         responseHeaders: {
           ...details.responseHeaders,
           'Content-Security-Policy': [
-            "default-src * mailspring:; script-src 'self' 'unsafe-inline' chrome-extension://react-developer-tools; style-src * 'unsafe-inline' mailspring:; img-src * data: mailspring: file:;",
+            "default-src * mailspring:; script-src 'self' 'unsafe-inline' chrome-extension://react-developer-tools; style-src * 'unsafe-inline' mailspring:; img-src * data: mailspring: file:; object-src none; media-src mailspring:; manifest-src none;",
           ],
         },
       });

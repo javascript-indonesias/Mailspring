@@ -22,6 +22,7 @@ import ConfigPersistenceManager from './config-persistence-manager';
 import moveToApplications from './move-to-applications';
 import { MailsyncProcess } from '../mailsync-process';
 import Config from '../config';
+import { registerQuickpreviewIPCHandlers } from './quickpreview-ipc';
 
 let clipboard = null;
 
@@ -136,7 +137,6 @@ export default class Application extends EventEmitter {
       this.touchBar = new ApplicationTouchBar(resourcePath);
     }
 
-    this.setupJavaScriptArguments();
     this.handleEvents();
     this.handleLaunchOptions(options);
 
@@ -256,12 +256,6 @@ export default class Application extends EventEmitter {
     }
   }
 
-  // Configures required javascript environment flags.
-  setupJavaScriptArguments() {
-    app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-    app.commandLine.appendSwitch('js-flags', '--harmony');
-  }
-
   openWindowsForTokenState() {
     // user may trigger this using the application menu / by focusing the app
     // before migration has completed and the config has been loaded.
@@ -269,9 +263,8 @@ export default class Application extends EventEmitter {
 
     const accounts = this.config.get('accounts');
     const hasAccount = accounts && accounts.length > 0;
-    const hasIdentity = this.config.get('identity.id');
 
-    if (hasAccount && hasIdentity) {
+    if (hasAccount) {
       this.windowManager.ensureWindow(WindowManager.MAIN_WINDOW);
     } else {
       this.windowManager.ensureWindow(WindowManager.ONBOARDING_WINDOW, {
@@ -357,6 +350,19 @@ export default class Application extends EventEmitter {
       win.browserWindow.inspectElement(x, y);
     });
 
+    this.on('application:add-identity', () => {
+      const onboarding = this.windowManager.get(WindowManager.ONBOARDING_WINDOW);
+      if (onboarding) {
+        onboarding.show();
+        onboarding.focus();
+      } else {
+        this.windowManager.ensureWindow(WindowManager.ONBOARDING_WINDOW, {
+          title: localized('Welcome to Mailspring'),
+          windowProps: {},
+        });
+      }
+    });
+
     this.on('application:add-account', ({ existingAccountJSON } = {}) => {
       const onboarding = this.windowManager.get(WindowManager.ONBOARDING_WINDOW);
       if (onboarding) {
@@ -394,19 +400,17 @@ export default class Application extends EventEmitter {
     });
 
     this.on('application:view-help', () => {
-      const helpUrl = 'http://support.getmailspring.com/hc/en-us';
+      const helpUrl = 'https://community.getmailspring.com/docs';
       shell.openExternal(helpUrl);
     });
 
     this.on('application:view-getting-started', () => {
-      const helpUrl =
-        'https://foundry376.zendesk.com/hc/en-us/sections/115000521592-Getting-Started';
+      const helpUrl = 'https://community.getmailspring.com/pub/quick-start-guide';
       shell.openExternal(helpUrl);
     });
 
-    this.on('application:view-faq', () => {
-      const helpUrl =
-        'https://foundry376.zendesk.com/hc/en-us/sections/115000521892-Frequently-Asked-Questions';
+    this.on('application:view-community', () => {
+      const helpUrl = 'https://community.getmailspring.com/';
       shell.openExternal(helpUrl);
     });
 
@@ -443,7 +447,9 @@ export default class Application extends EventEmitter {
     });
 
     this.on('application:view-license', () => {
-      shell.openItem(path.join(this.resourcePath, 'static', 'all_licenses.html'));
+      // Workaround to correctly get the unpacked path of the licenses file.
+      // For more information, see: https://github.com/electron/electron/issues/6262
+      shell.openPath(path.join(this.resourcePath, 'static', 'all_licenses.html').replace("app.asar", "app.asar.unpacked"));
     });
 
     if (process.platform === 'darwin') {
@@ -529,6 +535,19 @@ export default class Application extends EventEmitter {
         app.setBadgeCount(value.length ? value.replace('+', '') / 1 : 0);
       }
     });
+
+    const dockMenu = Menu.buildFromTemplate([
+      {
+        label: localized('Compose New Message'),
+        click: () => global.application.emit('application:new-message'),
+      },
+    ]);
+
+    app.whenReady().then(() => {
+      if (process.platform === 'darwin') {
+        app.dock.setMenu(dockMenu)
+      }
+    })
 
     ipcMain.on('new-window', (event, options) => {
       const win = options.windowKey ? this.windowManager.get(options.windowKey) : null;
@@ -703,6 +722,13 @@ export default class Application extends EventEmitter {
       }
       event.returnValue = true;
     });
+
+    ipcMain.on('resize-window', (event, params) => {
+      const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+      sourceWindow.setSize(params.width, params.height);
+    });
+
+    registerQuickpreviewIPCHandlers(ipcMain);
   }
 
   // Public: Executes the given command.

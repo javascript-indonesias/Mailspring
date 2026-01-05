@@ -35,6 +35,11 @@ export const ConditionTemplates = [
     },
   }),
 
+  new Template('replyTo', Template.Type.String, {
+    name: localized('Reply to'),
+    valueForMessage: message => [].concat(message.replyTo.map(c => c.email), message.to.map(c => c.name)),
+  }),
+
   new Template('anyAttachmentName', Template.Type.String, {
     name: localized('Attachment name'),
     valueForMessage: message => message.files.map(f => f.filename),
@@ -71,6 +76,7 @@ export const ActionTemplates = [
   new Template('markAsRead', Template.Type.None, { name: localized('Mark as Read') }),
   new Template('moveToTrash', Template.Type.None, { name: localized('Move to Trash') }),
   new Template('star', Template.Type.None, { name: localized('Star') }),
+  new Template('forward', Template.Type.InputString, { name: localized('Forward'), valueLabel: "to:" })
 ];
 
 export const ConditionMode = {

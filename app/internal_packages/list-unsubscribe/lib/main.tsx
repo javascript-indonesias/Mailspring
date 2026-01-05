@@ -1,9 +1,6 @@
 import * as React from 'react';
-import cheerio from 'cheerio';
-import {
-  Message,
-  ComponentRegistry,
-} from 'mailspring-exports';
+import * as cheerio from 'cheerio';
+import { Message, ComponentRegistry } from 'mailspring-exports';
 import { UnsubscribeHeader } from './unsubscribe-header';
 
 const regexps = [
@@ -60,37 +57,52 @@ const regexps = [
   /notisinställningar/gi,
 ];
 
+const _throwawayCache: Record<string, string> = {};
+
 interface UnsubscribeAction {
   href: string;
   innerText: string;
 }
 
-function bestUnsubscribeLink(message): string {
-  const dom = cheerio.load(message.body);
-  const links = _getLinks(dom);
+function bestUnsubscribeLink(message: Message): string {
+  if (_throwawayCache[message.id] !== undefined) {
+    return _throwawayCache[message.id];
+  }
 
   let result = null;
 
-  for (const link of links) {
-    for (const re of regexps) {
-      if (re.test(link.href)) {
-        // If the URL contains e.g. "unsubscribe" we assume that we have correctly
-        // detected the unsubscribe link.
-        return link.href;
-      }
-      if (re.test(link.innerText)) {
-        // If the URL does not contain "unsubscribe", but the text around the link contains
-        // it, it is a possible candidate, we we still check all other links for a better match
-        result = link.href;
+  // Only check the body if it has been downloaded already
+  if (message.body) {
+    const dom = cheerio.load(message.body);
+    const links = _getLinks(dom);
+
+    for (const link of links) {
+      for (const re of regexps) {
+        if (re.test(link.href)) {
+          // If the URL contains e.g. "unsubscribe" we assume that we have correctly
+          // detected the unsubscribe link.
+
+          _throwawayCache[message.id] = link.href;
+
+          return link.href;
+        }
+        if (re.test(link.innerText)) {
+          // If the URL does not contain "unsubscribe", but the text around the link contains
+          // it, it is a possible candidate, we we still check all other links for a better match
+          result = link.href;
+        }
       }
     }
+
+    _throwawayCache[message.id] = result;
   }
 
   return result;
 }
 
 const UnsubscribeHeaderContainer: React.FunctionComponent<{ message: Message }> = ({ message }) => {
-  const unsubscribeAction = bestUnsubscribeLink(message)
+  const unsubscribeAction = bestUnsubscribeLink(message);
+
   return unsubscribeAction ? <UnsubscribeHeader unsubscribeAction={unsubscribeAction} /> : null;
 };
 
@@ -110,24 +122,24 @@ export function deactivate() {
 // Returns a list of links as {href, innerText} objects
 function _getLinks($): UnsubscribeAction[] {
   const aParents = [];
-  $('a').each((index, aTag) => {
+  $('a:not(blockquote a)').each((_index, aTag) => {
     if (aTag && aTag.parent && !$(aParents).is(aTag.parent)) {
       aParents.unshift(aTag.parent);
     }
   });
 
   const links = [];
-  $(aParents).each((parentIndex, parent) => {
+  $(aParents).each((_parentIndex, parent) => {
     let link = false;
-    let leftoverText = "";
-    $(parent.children).each((childIndex, child) => {
+    let leftoverText = '';
+    $(parent.children).each((_childIndex, child) => {
       if ($(child).is($('a'))) {
         if (link !== false && leftoverText.length > 0) {
           links.push({
             href: link,
             innerText: leftoverText,
           });
-          leftoverText = "";
+          leftoverText = '';
         }
         link = $(child).attr('href');
       }
@@ -136,7 +148,7 @@ function _getLinks($): UnsubscribeAction[] {
       if (re.test(text)) {
         const splitup = text.split(re);
         for (let i = 0; i < splitup.length; i += 1) {
-          if (splitup[i] !== "" && splitup[i] !== undefined) {
+          if (splitup[i] !== '' && splitup[i] !== undefined) {
             if (link !== false) {
               const fullLine = leftoverText + splitup[i];
               links.push({
@@ -144,7 +156,7 @@ function _getLinks($): UnsubscribeAction[] {
                 innerText: fullLine,
               });
               link = false;
-              leftoverText = "";
+              leftoverText = '';
             } else {
               leftoverText += splitup[i];
             }
@@ -153,7 +165,7 @@ function _getLinks($): UnsubscribeAction[] {
       } else {
         leftoverText += text;
       }
-      leftoverText += " ";
+      leftoverText += ' ';
     });
     if (link !== false && leftoverText.length > 0) {
       links.push({
